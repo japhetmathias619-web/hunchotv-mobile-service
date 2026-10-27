@@ -46563,6 +46563,26 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// ../server/download-engine/membershipStore.ts
+async function membershipStorageRpc(name, input = {}) {
+  const base = process.env.SUPABASE_URL;
+  const anon = process.env.SUPABASE_ANON_KEY;
+  const access = process.env.MEMBERSHIP_STORAGE_KEY;
+  if (!base || !anon || !access || access.length < 32)
+    throw new Error("Durable membership storage is not configured.");
+  const url = new URL(base);
+  if (url.protocol !== "https:" || !url.hostname.endsWith(".supabase.co"))
+    throw new Error("Invalid membership storage host.");
+  const response = await fetch(`${url.origin}/rest/v1/rpc/huncho_membership_${name}`, {
+    method: "POST",
+    headers: { apikey: anon, Authorization: `Bearer ${anon}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_access_key: access, ...input }),
+    signal: AbortSignal.timeout(15e3)
+  });
+  if (!response.ok) throw new Error("Membership storage could not connect. Please retry.");
+  return await response.json();
+}
+
 // src/data/plans.ts
 var membershipPlans = [
   {
@@ -46636,6 +46656,18 @@ async function transact(work) {
   });
   await previous;
   try {
+    if (process.env.MEMBERSHIP_STORAGE === "supabase") {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const snapshot = await membershipStorageRpc("read");
+        const result2 = await work(snapshot.ledger);
+        const committed = await membershipStorageRpc("commit", {
+          p_expected_version: snapshot.version,
+          p_ledger: snapshot.ledger
+        });
+        if (committed) return result2;
+      }
+      throw new Error("Membership requests are busy. Please retry.");
+    }
     const folder = directory(), path = join(folder, "ledger.json");
     await mkdir(folder, { recursive: true });
     let ledger;
