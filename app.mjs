@@ -31320,16 +31320,18 @@ async function verifyVideo(url, hosts2, headers = {}) {
 
 // ../server/download-engine/downloadStore.ts
 function downloadCacheKey(tier, target) {
-  return createHash("sha256").update(JSON.stringify([
-    tier,
-    target.imdbId ?? normalizedTitle(target.title),
-    target.year ?? "",
-    target.season ?? "",
-    target.episode ?? "",
-    target.translated ?? false,
-    target.edition ?? "",
-    target.runtimeMinutes ?? ""
-  ])).digest("hex");
+  return createHash("sha256").update(
+    JSON.stringify([
+      tier,
+      target.imdbId ?? normalizedTitle(target.title),
+      target.year ?? "",
+      target.season ?? "",
+      target.episode ?? "",
+      target.translated ?? false,
+      target.edition ?? "",
+      target.runtimeMinutes ?? ""
+    ])
+  ).digest("hex");
 }
 async function rpc(name, key, value) {
   const base = new URL(process.env.SUPABASE_URL ?? "");
@@ -31337,12 +31339,23 @@ async function rpc(name, key, value) {
   const access = process.env.MEMBERSHIP_STORAGE_KEY;
   if (base.protocol !== "https:" || !base.hostname.endsWith(".supabase.co") || !anon || !access || access.length < 32)
     throw new Error("Durable download storage is not configured.");
-  const response = await fetch(`${base.origin}/rest/v1/rpc/huncho_download_${name}`, {
-    method: "POST",
-    headers: { apikey: anon, Authorization: `Bearer ${anon}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_access_key: access, p_key: key, ...value ? { p_record: value } : {} }),
-    signal: AbortSignal.timeout(12e3)
-  });
+  const response = await fetch(
+    `${base.origin}/rest/v1/rpc/huncho_download_${name}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: anon,
+        Authorization: `Bearer ${anon}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        p_access_key: access,
+        p_key: key,
+        ...value ? { p_record: value } : {}
+      }),
+      signal: AbortSignal.timeout(12e3)
+    }
+  );
   if (!response.ok) throw new Error("Download index could not connect.");
   return await response.json();
 }
@@ -31351,7 +31364,9 @@ var downloadStore = {
   async read(key) {
     if (process.env.MEMBERSHIP_STORAGE === "supabase") return rpc("read", key);
     try {
-      return JSON.parse(await readFile(join(folder(), `${key}.download.json`), "utf8"));
+      return JSON.parse(
+        await readFile(join(folder(), `${key}.download.json`), "utf8")
+      );
     } catch (error) {
       if (error.code === "ENOENT") return null;
       throw error;
@@ -31369,15 +31384,25 @@ var downloadStore = {
   }
 };
 function publicDownloadHosts() {
-  return ["downloadwella.com", "*.downloadwella.com", "archive.org", "*.archive.org", ...(process.env.DOWNLOAD_MEDIA_HOSTS ?? "").split(",").map((host) => host.trim()).filter(Boolean)];
+  return [
+    "downloadwella.com",
+    "*.downloadwella.com",
+    "archive.org",
+    "*.archive.org",
+    ...(process.env.DOWNLOAD_MEDIA_HOSTS ?? "").split(",").map((host) => host.trim()).filter(Boolean)
+  ];
 }
 async function verify(source) {
   if (source.type !== "direct" || source.source === "Real-Debrid") return null;
-  const checked = await verifyVideo(source.url, publicDownloadHosts(), source.headers);
+  const checked = await verifyVideo(
+    source.url,
+    publicDownloadHosts(),
+    source.headers
+  );
   return checked ? { ...source, ...checked } : null;
 }
 var pending = /* @__PURE__ */ new Map();
-async function reliableDownloads(key, scrape, store = downloadStore, check = verify) {
+async function reliableDownloads(key, scrape, store = downloadStore, check = verify, forceRefresh = false) {
   const existing = pending.get(key);
   if (existing) return existing;
   const work = (async () => {
@@ -31394,14 +31419,46 @@ async function reliableDownloads(key, scrape, store = downloadStore, check = ver
       } catch {
       }
     }
-    if (checked.length) {
-      await store.write(key, { sources: checked, verifiedAt: (/* @__PURE__ */ new Date()).toISOString() }).catch(() => {
+    const refreshedAt = saved?.refreshedAt ?? saved?.verifiedAt;
+    const refreshDue = !refreshedAt || Date.now() - Date.parse(refreshedAt) > 6 * 36e5;
+    if (checked.length && !forceRefresh && !refreshDue) {
+      await store.write(key, {
+        sources: checked,
+        refreshedAt,
+        verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }).catch(() => {
       });
-      return { status: "found", sources: checked, message: "Saved files rechecked successfully." };
+      return {
+        status: "found",
+        sources: checked,
+        message: "Saved files rechecked successfully."
+      };
     }
-    const result = await scrape();
-    const durable = result.sources.filter((source) => source.type === "direct" && source.source !== "Real-Debrid").slice(0, 4);
-    await store.write(key, { sources: durable, verifiedAt: (/* @__PURE__ */ new Date()).toISOString() }).catch(() => {
+    let result;
+    try {
+      result = await scrape();
+    } catch (error) {
+      if (!checked.length) throw error;
+      result = { status: "unavailable", sources: [] };
+    }
+    const durable = result.sources.filter(
+      (source) => source.type === "direct" && source.source !== "Real-Debrid"
+    ).slice(0, 4);
+    if (!durable.length && checked.length) {
+      await store.write(key, {
+        sources: checked,
+        refreshedAt,
+        verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }).catch(() => {
+      });
+      return {
+        status: "found",
+        sources: checked,
+        message: "Saved files rechecked. No newer file was available."
+      };
+    }
+    const stamp = (/* @__PURE__ */ new Date()).toISOString();
+    await store.write(key, { sources: durable, verifiedAt: stamp, refreshedAt: stamp }).catch(() => {
     });
     return result;
   })();
@@ -46940,14 +46997,23 @@ async function membershipApi(path, method, input, headers, ip) {
       await transact((ledger) => {
         let previousRequestId;
         if (input.previousRequestId) {
-          const previous = ledger.requests.find((item) => item.id === input.previousRequestId);
+          const previous = ledger.requests.find(
+            (item) => item.id === input.previousRequestId
+          );
           if (!previous?.receiptHash || !equal(previous.receiptHash, hash(details(input.receiptToken))) || previous.email !== email)
             throw new Error("Your current membership could not be verified.");
-          if (previous.supersededBy) throw new Error("This membership was already replaced. Refresh your plan.");
-          const previousPlan = membershipPlans.find((plan) => plan.id === previous.planId);
+          if (previous.supersededBy)
+            throw new Error(
+              "This membership was already replaced. Refresh your plan."
+            );
+          const previousPlan = membershipPlans.find(
+            (plan) => plan.id === previous.planId
+          );
           const nextPlan = membershipPlans.find((plan) => plan.id === planId);
           if (Date.parse(previous.endsAt ?? "") > Date.now() && nextPlan.days < previousPlan.days)
-            throw new Error("Choose the same plan to extend it, or a longer plan to upgrade.");
+            throw new Error(
+              "Choose the same plan to extend it, or a longer plan to upgrade."
+            );
           previousRequestId = previous.id;
         }
         ledger.requests.push({
@@ -46988,11 +47054,21 @@ async function membershipApi(path, method, input, headers, ip) {
           const activatedAt = Date.now();
           let remaining = 0;
           if (record.previousRequestId) {
-            const previous = ledger.requests.find((item) => item.id === record.previousRequestId);
-            if (!previous || previous.supersededBy) throw new Error("The previous plan was already replaced. Contact support before paying again.");
+            const previous = ledger.requests.find(
+              (item) => item.id === record.previousRequestId
+            );
+            if (!previous || previous.supersededBy)
+              throw new Error(
+                "The previous plan was already replaced. Contact support before paying again."
+              );
             remaining = Math.max(0, Date.parse(previous.endsAt ?? "") - activatedAt) || 0;
             previous.supersededBy = record.id;
-            previous.endsAt = new Date(Math.min(activatedAt, Date.parse(previous.endsAt ?? "") || activatedAt)).toISOString();
+            previous.endsAt = new Date(
+              Math.min(
+                activatedAt,
+                Date.parse(previous.endsAt ?? "") || activatedAt
+              )
+            ).toISOString();
           }
           record.activatedAt = new Date(activatedAt).toISOString();
           record.endsAt = new Date(
@@ -47015,7 +47091,8 @@ async function membershipApi(path, method, input, headers, ip) {
           );
           if (!record?.receiptHash || !equal(record.receiptHash, hash(details(input.receiptToken))))
             throw new Error("Membership could not be verified.");
-          if (path.endsWith("/cancel")) record.cancelledAt ??= (/* @__PURE__ */ new Date()).toISOString();
+          if (path.endsWith("/cancel"))
+            record.cancelledAt ??= (/* @__PURE__ */ new Date()).toISOString();
           return {
             ...entitlement(record),
             active: Date.parse(record.endsAt ?? "") > Date.now()
@@ -47277,10 +47354,15 @@ var server = createServer(async (request2, response) => {
   }
   const key = downloadCacheKey(tier, target);
   try {
-    const result = await withRequestBudget(() => reliableDownloads(
-      key,
-      () => providers[tier](target)
-    ));
+    const result = await withRequestBudget(
+      () => reliableDownloads(
+        key,
+        () => providers[tier](target),
+        void 0,
+        void 0,
+        value.refresh === true
+      )
+    );
     send(200, result);
   } catch {
     send(200, {
