@@ -13859,8 +13859,8 @@ var require_pool_base = __commonJS({
       }
       get [kPending]() {
         let ret = this[kQueued];
-        for (const { [kPending]: pending2 } of this[kClients]) {
-          ret += pending2;
+        for (const { [kPending]: pending3 } of this[kClients]) {
+          ret += pending3;
         }
         return ret;
       }
@@ -18343,19 +18343,19 @@ var require_mock_agent = __commonJS({
       }
       pendingInterceptors() {
         const mockAgentClients = this[kClients];
-        return Array.from(mockAgentClients.entries()).flatMap(([origin2, result]) => result.dispatcher[kDispatches].map((dispatch) => ({ ...dispatch, origin: origin2 }))).filter(({ pending: pending2 }) => pending2);
+        return Array.from(mockAgentClients.entries()).flatMap(([origin2, result]) => result.dispatcher[kDispatches].map((dispatch) => ({ ...dispatch, origin: origin2 }))).filter(({ pending: pending3 }) => pending3);
       }
       assertNoPendingInterceptors({ pendingInterceptorsFormatter = new PendingInterceptorsFormatter() } = {}) {
-        const pending2 = this.pendingInterceptors();
-        if (pending2.length === 0) {
+        const pending3 = this.pendingInterceptors();
+        if (pending3.length === 0) {
           return;
         }
         throw new UndiciError(
-          pending2.length === 1 ? `1 interceptor is pending:
+          pending3.length === 1 ? `1 interceptor is pending:
 
-${pendingInterceptorsFormatter.format(pending2)}`.trim() : `${pending2.length} interceptors are pending:
+${pendingInterceptorsFormatter.format(pending3)}`.trim() : `${pending3.length} interceptors are pending:
 
-${pendingInterceptorsFormatter.format(pending2)}`.trim()
+${pendingInterceptorsFormatter.format(pending3)}`.trim()
         );
       }
     };
@@ -18453,7 +18453,7 @@ var require_snapshot_utils = __commonJS({
 var require_snapshot_recorder = __commonJS({
   "../server/download-engine/node_modules/undici/lib/mock/snapshot-recorder.js"(exports, module) {
     "use strict";
-    var { writeFile: writeFile2, readFile: readFile2, mkdir: mkdir3 } = __require("node:fs/promises");
+    var { writeFile: writeFile3, readFile: readFile3, mkdir: mkdir4 } = __require("node:fs/promises");
     var { dirname, resolve } = __require("node:path");
     var { setTimeout: setTimeout2, clearTimeout: clearTimeout2 } = __require("node:timers");
     var { InvalidArgumentError, UndiciError } = require_errors();
@@ -18655,7 +18655,7 @@ var require_snapshot_recorder = __commonJS({
           throw new InvalidArgumentError("Snapshot path is required");
         }
         try {
-          const data2 = await readFile2(resolve(path), "utf8");
+          const data2 = await readFile3(resolve(path), "utf8");
           const parsed = JSON.parse(data2);
           if (Array.isArray(parsed)) {
             this.#snapshots.clear();
@@ -18685,12 +18685,12 @@ var require_snapshot_recorder = __commonJS({
           throw new InvalidArgumentError("Snapshot path is required");
         }
         const resolvedPath = resolve(path);
-        await mkdir3(dirname(resolvedPath), { recursive: true });
+        await mkdir4(dirname(resolvedPath), { recursive: true });
         const data2 = Array.from(this.#snapshots.entries()).map(([hash2, snapshot]) => ({
           hash: hash2,
           snapshot
         }));
-        await writeFile2(resolvedPath, JSON.stringify(data2, null, 2), { flush: true });
+        await writeFile3(resolvedPath, JSON.stringify(data2, null, 2), { flush: true });
       }
       /**
        * Clears all recorded snapshots
@@ -26886,8 +26886,8 @@ var require_cache3 = __commonJS({
        * @returns {requestResponseList}
        */
       #batchCacheOperations(operations) {
-        const cache4 = this.#relevantRequestResponseList;
-        const backupCache = [...cache4];
+        const cache3 = this.#relevantRequestResponseList;
+        const backupCache = [...cache3];
         const addedItems = [];
         const resultList = [];
         try {
@@ -26914,9 +26914,9 @@ var require_cache3 = __commonJS({
                 return [];
               }
               for (const requestResponse of requestResponses) {
-                const idx = cache4.indexOf(requestResponse);
+                const idx = cache3.indexOf(requestResponse);
                 assert(idx !== -1);
-                cache4.splice(idx, 1);
+                cache3.splice(idx, 1);
               }
             } else if (operation.type === "put") {
               if (operation.response == null) {
@@ -26946,11 +26946,11 @@ var require_cache3 = __commonJS({
               }
               requestResponses = this.#queryCache(operation.request);
               for (const requestResponse of requestResponses) {
-                const idx = cache4.indexOf(requestResponse);
+                const idx = cache3.indexOf(requestResponse);
                 assert(idx !== -1);
-                cache4.splice(idx, 1);
+                cache3.splice(idx, 1);
               }
-              cache4.push([operation.request, operation.response]);
+              cache3.push([operation.request, operation.response]);
               addedItems.push([operation.request, operation.response]);
             }
             resultList.push([operation.request, operation.response]);
@@ -27127,13 +27127,13 @@ var require_cachestorage = __commonJS({
         if (options.cacheName != null) {
           if (this.#caches.has(options.cacheName)) {
             const cacheList = this.#caches.get(options.cacheName);
-            const cache4 = new Cache(kConstruct, cacheList);
-            return await cache4.match(request2, options);
+            const cache3 = new Cache(kConstruct, cacheList);
+            return await cache3.match(request2, options);
           }
         } else {
           for (const cacheList of this.#caches.values()) {
-            const cache4 = new Cache(kConstruct, cacheList);
-            const response = await cache4.match(request2, options);
+            const cache3 = new Cache(kConstruct, cacheList);
+            const response = await cache3.match(request2, options);
             if (response !== void 0) {
               return response;
             }
@@ -27163,12 +27163,12 @@ var require_cachestorage = __commonJS({
         webidl.argumentLengthCheck(arguments, 1, prefix);
         cacheName = webidl.converters.DOMString(cacheName, prefix, "cacheName");
         if (this.#caches.has(cacheName)) {
-          const cache5 = this.#caches.get(cacheName);
-          return new Cache(kConstruct, cache5);
+          const cache4 = this.#caches.get(cacheName);
+          return new Cache(kConstruct, cache4);
         }
-        const cache4 = [];
-        this.#caches.set(cacheName, cache4);
-        return new Cache(kConstruct, cache4);
+        const cache3 = [];
+        this.#caches.set(cacheName, cache3);
+        return new Cache(kConstruct, cache3);
       }
       /**
        * @see https://w3c.github.io/ServiceWorker/#cache-storage-delete
@@ -31171,10 +31171,11 @@ var require_mime_type = __commonJS({
   }
 });
 
-// ../server/download-engine/index.ts
-import { createServer } from "node:http";
-import { mkdir as mkdir2, appendFile } from "node:fs/promises";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
+// ../server/download-engine/downloadStore.ts
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // src/utils/downloadPipeline.ts
 function normalizedTitle(title) {
@@ -31191,6 +31192,231 @@ function magnetUri(hash2, title) {
   if (!/^[a-f0-9]{40}$/i.test(hash2)) return null;
   return `magnet:?xt=urn:btih:${hash2.toLowerCase()}&dn=${encodeURIComponent(title)}&tr=${encodeURIComponent("udp://tracker.opentrackr.org:1337/announce")}`;
 }
+
+// ../server/download-engine/network.ts
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import { AsyncLocalStorage } from "node:async_hooks";
+var requestBudget = new AsyncLocalStorage();
+function withRequestBudget(work) {
+  return requestBudget.run(AbortSignal.timeout(28e3), work);
+}
+function publicAddress(address) {
+  if (isIP(address) === 4) {
+    const [a, b, c] = address.split(".").map(Number);
+    return !(a === 0 || a === 10 || a === 127 || a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31 || a === 192 && (b === 168 || b === 0) || a === 100 && b >= 64 && b <= 127 || a === 198 && (b === 18 || b === 19 || b === 51 && c === 100) || a === 203 && b === 0 && c === 113 || a >= 224);
+  }
+  return isIP(address) === 6 && /^[23][0-9a-f]{3}:/i.test(address) && !/^2002:|^2001:(?:0:|db8:)/i.test(address);
+}
+function permittedUrl(input, hosts2) {
+  const url = new URL(input);
+  const allowed = hosts2.some(
+    (host) => host.startsWith("*.") ? url.hostname.endsWith(host.slice(1)) : url.hostname === host
+  );
+  if (url.protocol !== "https:" || url.username || url.password || url.port && url.port !== "443" || !allowed || isIP(url.hostname))
+    throw new Error("Source host is not permitted");
+  return url;
+}
+async function checkedFetch(input, hosts2, init = {}) {
+  let current = input;
+  for (let redirect = 0; redirect < 4; redirect++) {
+    const url = permittedUrl(current, hosts2);
+    const addresses = await lookup(url.hostname, { all: true });
+    if (!addresses.length || addresses.some((item) => !publicAddress(item.address)))
+      throw new Error("Source resolves to a private network");
+    const response = await fetch(url, {
+      ...init,
+      redirect: "manual",
+      signal: AbortSignal.any([
+        AbortSignal.timeout(8e3),
+        ...requestBudget.getStore() ? [requestBudget.getStore()] : [],
+        ...init.signal ? [init.signal] : []
+      ]),
+      headers: {
+        "User-Agent": "HunchOTV-DownloadResolver/1.0",
+        ...init.headers
+      }
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      await response.body?.cancel();
+      if (!location || init.method && init.method !== "GET")
+        throw new Error("Unexpected redirect");
+      current = new URL(location, url).href;
+      continue;
+    }
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new Error(`Upstream returned ${response.status}`);
+    }
+    return response;
+  }
+  throw new Error("Too many redirects");
+}
+async function responseText(response) {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 4 * 1024 * 1024) throw new Error("Response too large");
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel();
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+async function fetchJson(url, hosts2, init) {
+  const response = await checkedFetch(url, hosts2, init);
+  if (response.status === 204) return void 0;
+  return JSON.parse(await responseText(response));
+}
+function videoContainer(type, prefix) {
+  const bytes = Buffer.from(prefix);
+  if ((type === "video/mp4" || type === "application/octet-stream") && bytes.subarray(4, 8).toString() === "ftyp")
+    return "MP4";
+  if ((type === "video/x-matroska" || type === "application/octet-stream") && bytes.subarray(0, 4).equals(Buffer.from([26, 69, 223, 163])))
+    return "MKV";
+  return null;
+}
+async function verifyVideo(url, hosts2, headers = {}) {
+  try {
+    const response = await checkedFetch(url, hosts2, {
+      headers: { ...headers, Range: "bytes=0-511" }
+    });
+    const type = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    const reader = response.body?.getReader();
+    let prefix = Buffer.alloc(0);
+    try {
+      while (reader && prefix.length < 16) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        prefix = Buffer.concat([
+          prefix,
+          Buffer.from(chunk.value ?? [])
+        ]).subarray(0, 16);
+      }
+    } finally {
+      await reader?.cancel();
+    }
+    const format = videoContainer(type ?? "", prefix);
+    if (!format) return null;
+    const bytes = Number(
+      response.headers.get("content-range")?.split("/")[1] ?? (response.status === 200 ? response.headers.get("content-length") : 0)
+    );
+    return {
+      format,
+      size: bytes > 0 ? `${Math.round(bytes / 1048576)} MB` : void 0
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ../server/download-engine/downloadStore.ts
+function downloadCacheKey(tier, target) {
+  return createHash("sha256").update(JSON.stringify([
+    tier,
+    target.imdbId ?? normalizedTitle(target.title),
+    target.year ?? "",
+    target.season ?? "",
+    target.episode ?? "",
+    target.translated ?? false,
+    target.edition ?? "",
+    target.runtimeMinutes ?? ""
+  ])).digest("hex");
+}
+async function rpc(name, key, value) {
+  const base = new URL(process.env.SUPABASE_URL ?? "");
+  const anon = process.env.SUPABASE_ANON_KEY;
+  const access = process.env.MEMBERSHIP_STORAGE_KEY;
+  if (base.protocol !== "https:" || !base.hostname.endsWith(".supabase.co") || !anon || !access || access.length < 32)
+    throw new Error("Durable download storage is not configured.");
+  const response = await fetch(`${base.origin}/rest/v1/rpc/huncho_download_${name}`, {
+    method: "POST",
+    headers: { apikey: anon, Authorization: `Bearer ${anon}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_access_key: access, p_key: key, ...value ? { p_record: value } : {} }),
+    signal: AbortSignal.timeout(12e3)
+  });
+  if (!response.ok) throw new Error("Download index could not connect.");
+  return await response.json();
+}
+var folder = () => process.env.DOWNLOAD_DATA_DIR ?? fileURLToPath(new URL("./data/", import.meta.url));
+var downloadStore = {
+  async read(key) {
+    if (process.env.MEMBERSHIP_STORAGE === "supabase") return rpc("read", key);
+    try {
+      return JSON.parse(await readFile(join(folder(), `${key}.download.json`), "utf8"));
+    } catch (error) {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    }
+  },
+  async write(key, value) {
+    if (process.env.MEMBERSHIP_STORAGE === "supabase") {
+      await rpc("upsert", key, value);
+      return;
+    }
+    await mkdir(folder(), { recursive: true });
+    const path = join(folder(), `${key}.download.json`);
+    await writeFile(path + ".tmp", JSON.stringify(value), { mode: 384 });
+    await rename(path + ".tmp", path);
+  }
+};
+function publicDownloadHosts() {
+  return ["downloadwella.com", "*.downloadwella.com", "archive.org", "*.archive.org", ...(process.env.DOWNLOAD_MEDIA_HOSTS ?? "").split(",").map((host) => host.trim()).filter(Boolean)];
+}
+async function verify(source) {
+  if (source.type !== "direct" || source.source === "Real-Debrid") return null;
+  const checked = await verifyVideo(source.url, publicDownloadHosts(), source.headers);
+  return checked ? { ...source, ...checked } : null;
+}
+var pending = /* @__PURE__ */ new Map();
+async function reliableDownloads(key, scrape, store = downloadStore, check = verify) {
+  const existing = pending.get(key);
+  if (existing) return existing;
+  const work = (async () => {
+    let saved = null;
+    try {
+      saved = await store.read(key);
+    } catch {
+    }
+    const checked = [];
+    for (const source of saved?.sources.slice(0, 4) ?? []) {
+      try {
+        const good = await check(source);
+        if (good) checked.push(good);
+      } catch {
+      }
+    }
+    if (checked.length) {
+      await store.write(key, { sources: checked, verifiedAt: (/* @__PURE__ */ new Date()).toISOString() }).catch(() => {
+      });
+      return { status: "found", sources: checked, message: "Saved files rechecked successfully." };
+    }
+    const result = await scrape();
+    const durable = result.sources.filter((source) => source.type === "direct" && source.source !== "Real-Debrid").slice(0, 4);
+    await store.write(key, { sources: durable, verifiedAt: (/* @__PURE__ */ new Date()).toISOString() }).catch(() => {
+    });
+    return result;
+  })();
+  pending.set(key, work);
+  try {
+    return await work;
+  } finally {
+    pending.delete(key);
+  }
+}
+
+// ../server/download-engine/index.ts
+import { createServer } from "node:http";
+import { mkdir as mkdir3, appendFile } from "node:fs/promises";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // src/services/publicDownloads.ts
 var fileHosts = [
@@ -45789,131 +46015,6 @@ var STRINGS = {
 var undici = __toESM(require_undici(), 1);
 var import_whatwg_mimetype = __toESM(require_mime_type(), 1);
 
-// ../server/download-engine/network.ts
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-import { AsyncLocalStorage } from "node:async_hooks";
-var requestBudget = new AsyncLocalStorage();
-function withRequestBudget(work) {
-  return requestBudget.run(AbortSignal.timeout(28e3), work);
-}
-function publicAddress(address) {
-  if (isIP(address) === 4) {
-    const [a, b, c] = address.split(".").map(Number);
-    return !(a === 0 || a === 10 || a === 127 || a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31 || a === 192 && (b === 168 || b === 0) || a === 100 && b >= 64 && b <= 127 || a === 198 && (b === 18 || b === 19 || b === 51 && c === 100) || a === 203 && b === 0 && c === 113 || a >= 224);
-  }
-  return isIP(address) === 6 && /^[23][0-9a-f]{3}:/i.test(address) && !/^2002:|^2001:(?:0:|db8:)/i.test(address);
-}
-function permittedUrl(input, hosts2) {
-  const url = new URL(input);
-  const allowed = hosts2.some(
-    (host) => host.startsWith("*.") ? url.hostname.endsWith(host.slice(1)) : url.hostname === host
-  );
-  if (url.protocol !== "https:" || url.username || url.password || url.port && url.port !== "443" || !allowed || isIP(url.hostname))
-    throw new Error("Source host is not permitted");
-  return url;
-}
-async function checkedFetch(input, hosts2, init = {}) {
-  let current = input;
-  for (let redirect = 0; redirect < 4; redirect++) {
-    const url = permittedUrl(current, hosts2);
-    const addresses = await lookup(url.hostname, { all: true });
-    if (!addresses.length || addresses.some((item) => !publicAddress(item.address)))
-      throw new Error("Source resolves to a private network");
-    const response = await fetch(url, {
-      ...init,
-      redirect: "manual",
-      signal: AbortSignal.any([
-        AbortSignal.timeout(8e3),
-        ...requestBudget.getStore() ? [requestBudget.getStore()] : [],
-        ...init.signal ? [init.signal] : []
-      ]),
-      headers: {
-        "User-Agent": "HunchOTV-DownloadResolver/1.0",
-        ...init.headers
-      }
-    });
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      await response.body?.cancel();
-      if (!location || init.method && init.method !== "GET")
-        throw new Error("Unexpected redirect");
-      current = new URL(location, url).href;
-      continue;
-    }
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error(`Upstream returned ${response.status}`);
-    }
-    return response;
-  }
-  throw new Error("Too many redirects");
-}
-async function responseText(response) {
-  const reader = response.body?.getReader();
-  if (!reader) return "";
-  const chunks = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > 4 * 1024 * 1024) throw new Error("Response too large");
-      chunks.push(value);
-    }
-  } finally {
-    await reader.cancel();
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-async function fetchJson(url, hosts2, init) {
-  const response = await checkedFetch(url, hosts2, init);
-  if (response.status === 204) return void 0;
-  return JSON.parse(await responseText(response));
-}
-function videoContainer(type, prefix) {
-  const bytes = Buffer.from(prefix);
-  if ((type === "video/mp4" || type === "application/octet-stream") && bytes.subarray(4, 8).toString() === "ftyp")
-    return "MP4";
-  if ((type === "video/x-matroska" || type === "application/octet-stream") && bytes.subarray(0, 4).equals(Buffer.from([26, 69, 223, 163])))
-    return "MKV";
-  return null;
-}
-async function verifyVideo(url, hosts2) {
-  try {
-    const response = await checkedFetch(url, hosts2, {
-      headers: { Range: "bytes=0-511" }
-    });
-    const type = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
-    const reader = response.body?.getReader();
-    let prefix = Buffer.alloc(0);
-    try {
-      while (reader && prefix.length < 16) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        prefix = Buffer.concat([
-          prefix,
-          Buffer.from(chunk.value ?? [])
-        ]).subarray(0, 16);
-      }
-    } finally {
-      await reader?.cancel();
-    }
-    const format = videoContainer(type ?? "", prefix);
-    if (!format) return null;
-    const bytes = Number(
-      response.headers.get("content-range")?.split("/")[1] ?? (response.status === 200 ? response.headers.get("content-length") : 0)
-    );
-    return {
-      format,
-      size: bytes > 0 ? `${Math.round(bytes / 1048576)} MB` : void 0
-    };
-  } catch {
-    return null;
-  }
-}
-
 // ../server/download-engine/providers.ts
 var debridIds = /* @__PURE__ */ new Map();
 async function debridCall(path, params) {
@@ -46071,7 +46172,7 @@ async function webMirrors(target) {
     });
     if (result.sources.length) {
       const verified = await Promise.all(result.sources.map(async (source) => {
-        const file = await verifyVideo(source.url, ["downloadwella.com", "*.downloadwella.com"]);
+        const file = await verifyVideo(source.url, ["downloadwella.com", "*.downloadwella.com"], source.headers);
         return file ? { ...source, ...file } : null;
       }));
       const sources = verified.filter((source) => source !== null);
@@ -46260,17 +46361,17 @@ function mapJamboMovie(input) {
 var origin = "https://jamboflix.com";
 var hosts = ["jamboflix.com", "media.jamboflix.com"];
 var cache = /* @__PURE__ */ new Map();
-var pending = /* @__PURE__ */ new Map();
+var pending2 = /* @__PURE__ */ new Map();
 async function cached(key, load2) {
   const hit = cache.get(key);
   if (hit && hit.expires > Date.now()) return hit.value;
-  if (pending.has(key)) return pending.get(key);
+  if (pending2.has(key)) return pending2.get(key);
   const task = load2().then((value) => {
     if (cache.size >= 100) cache.delete(cache.keys().next().value);
     cache.set(key, { value, expires: Date.now() + 15 * 6e4 });
     return value;
-  }).finally(() => pending.delete(key));
-  pending.set(key, task);
+  }).finally(() => pending2.delete(key));
+  pending2.set(key, task);
   return task;
 }
 function jamboCatalogue(query, page) {
@@ -46559,9 +46660,9 @@ import {
   scryptSync,
   timingSafeEqual
 } from "node:crypto";
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdir as mkdir2, readFile as readFile2, writeFile as writeFile2, rename as rename2 } from "node:fs/promises";
+import { join as join2 } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // ../server/download-engine/membershipStore.ts
 async function membershipStorageRpc(name, input = {}) {
@@ -46645,7 +46746,7 @@ function limit(key, maximum) {
     throw new Error("Too many attempts. Please wait five minutes.");
 }
 function directory() {
-  return process.env.MEMBERSHIP_DATA_DIR ?? fileURLToPath(new URL("./data/memberships/", import.meta.url));
+  return process.env.MEMBERSHIP_DATA_DIR ?? fileURLToPath2(new URL("./data/memberships/", import.meta.url));
 }
 async function transact(work) {
   let release = () => {
@@ -46668,19 +46769,19 @@ async function transact(work) {
       }
       throw new Error("Membership requests are busy. Please retry.");
     }
-    const folder = directory(), path = join(folder, "ledger.json");
-    await mkdir(folder, { recursive: true });
+    const folder2 = directory(), path = join2(folder2, "ledger.json");
+    await mkdir2(folder2, { recursive: true });
     let ledger;
     try {
-      ledger = JSON.parse(await readFile(path, "utf8"));
+      ledger = JSON.parse(await readFile2(path, "utf8"));
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       ledger = { requests: [] };
     }
     const result = await work(ledger);
     const temporary = path + ".tmp";
-    await writeFile(temporary, JSON.stringify(ledger), { mode: 384 });
-    await rename(temporary, path);
+    await writeFile2(temporary, JSON.stringify(ledger), { mode: 384 });
+    await rename2(temporary, path);
     return result;
   } finally {
     release();
@@ -46697,6 +46798,7 @@ function entitlement(record) {
     planId: record.planId,
     startsAt: record.activatedAt,
     endsAt: record.endsAt,
+    cancelledAt: record.cancelledAt,
     serverNow: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
@@ -46836,13 +46938,26 @@ async function membershipApi(path, method, input, headers, ip) {
         throw new Error("Enter a valid email, mobile number and plan.");
       const claimToken = randomBytes(32).toString("hex"), id = randomBytes(12).toString("hex");
       await transact((ledger) => {
+        let previousRequestId;
+        if (input.previousRequestId) {
+          const previous = ledger.requests.find((item) => item.id === input.previousRequestId);
+          if (!previous?.receiptHash || !equal(previous.receiptHash, hash(details(input.receiptToken))) || previous.email !== email)
+            throw new Error("Your current membership could not be verified.");
+          if (previous.supersededBy) throw new Error("This membership was already replaced. Refresh your plan.");
+          const previousPlan = membershipPlans.find((plan) => plan.id === previous.planId);
+          const nextPlan = membershipPlans.find((plan) => plan.id === planId);
+          if (Date.parse(previous.endsAt ?? "") > Date.now() && nextPlan.days < previousPlan.days)
+            throw new Error("Choose the same plan to extend it, or a longer plan to upgrade.");
+          previousRequestId = previous.id;
+        }
         ledger.requests.push({
           id,
           email,
           phone,
           planId,
           createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-          claimHash: hash(claimToken)
+          claimHash: hash(claimToken),
+          previousRequestId
         });
       });
       return { status: 200, data: { requestId: id, claimToken } };
@@ -46871,9 +46986,17 @@ async function membershipApi(path, method, input, headers, ip) {
             (item) => item.id === record.planId
           );
           const activatedAt = Date.now();
+          let remaining = 0;
+          if (record.previousRequestId) {
+            const previous = ledger.requests.find((item) => item.id === record.previousRequestId);
+            if (!previous || previous.supersededBy) throw new Error("The previous plan was already replaced. Contact support before paying again.");
+            remaining = Math.max(0, Date.parse(previous.endsAt ?? "") - activatedAt) || 0;
+            previous.supersededBy = record.id;
+            previous.endsAt = new Date(Math.min(activatedAt, Date.parse(previous.endsAt ?? "") || activatedAt)).toISOString();
+          }
           record.activatedAt = new Date(activatedAt).toISOString();
           record.endsAt = new Date(
-            activatedAt + plan.days * 864e5
+            activatedAt + plan.days * 864e5 + remaining
           ).toISOString();
           const receiptToken = randomBytes(32).toString("hex");
           record.receiptHash = hash(receiptToken);
@@ -46882,7 +47005,7 @@ async function membershipApi(path, method, input, headers, ip) {
         })
       };
     }
-    if (path === "/api/membership/status" && method === "POST") {
+    if ((path === "/api/membership/status" || path === "/api/membership/cancel") && method === "POST") {
       limit("status:" + ip, 60);
       return {
         status: 200,
@@ -46892,6 +47015,7 @@ async function membershipApi(path, method, input, headers, ip) {
           );
           if (!record?.receiptHash || !equal(record.receiptHash, hash(details(input.receiptToken))))
             throw new Error("Membership could not be verified.");
+          if (path.endsWith("/cancel")) record.cancelledAt ??= (/* @__PURE__ */ new Date()).toISOString();
           return {
             ...entitlement(record),
             active: Date.parse(record.endsAt ?? "") > Date.now()
@@ -46914,7 +47038,6 @@ async function membershipApi(path, method, input, headers, ip) {
 var bind = process.env.DOWNLOAD_BIND ?? "127.0.0.1";
 var local = bind === "127.0.0.1";
 var origins = (process.env.DOWNLOAD_ALLOWED_ORIGINS ?? "http://localhost:8082").split(",");
-var cache3 = /* @__PURE__ */ new Map();
 var quota = /* @__PURE__ */ new Map();
 var providers = {
   "YTS / Debrid": yts,
@@ -46977,38 +47100,6 @@ async function authenticate(request2) {
   } catch {
     return null;
   }
-}
-async function cacheVerifiedUploads(target, result) {
-  const url = process.env.SUPABASE_URL, token = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (process.env.DOWNLOAD_CACHE_SUPABASE !== "true" || !url || !token || !target.imdbId)
-    return;
-  const stable = result.sources.filter(
-    (source) => source.type === "direct" && source.source !== "Real-Debrid" && !new URL(source.url).search
-  );
-  if (!stable.length) return;
-  const hosts2 = [new URL(url).hostname];
-  const headers = {
-    apikey: token,
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json"
-  };
-  const response = await checkedFetch(
-    `${url}/rest/v1/movies?imdb_id=eq.${target.imdbId}&download_servers=eq.%5B%5D`,
-    hosts2,
-    {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({
-        download_servers: stable.map((source) => ({
-          url: source.url,
-          quality: source.quality,
-          file_size: source.size,
-          format: source.format
-        }))
-      })
-    }
-  );
-  await response.body?.cancel();
 }
 var server = createServer(async (request2, response) => {
   const origin2 = request2.headers.origin;
@@ -47126,11 +47217,12 @@ var server = createServer(async (request2, response) => {
     send(404, { error: "Not found" });
     return;
   }
-  const user = await authenticate(request2);
-  if (!user) {
+  const authenticated = await authenticate(request2);
+  if (request2.headers.authorization && !authenticated) {
     send(401, { error: "Sign in to use this download backend" });
     return;
   }
+  const user = authenticated ?? `guest:${request2.socket.remoteAddress ?? "unknown"}`;
   const now = Date.now();
   for (const [key2, entry] of quota) if (entry.expires < now) quota.delete(key2);
   if (quota.size > 5e3) {
@@ -47154,10 +47246,10 @@ var server = createServer(async (request2, response) => {
   }
   if (request2.url === "/api/downloads/request") {
     try {
-      const folder = process.env.DOWNLOAD_DATA_DIR ?? fileURLToPath2(new URL("./data/", import.meta.url));
-      await mkdir2(folder, { recursive: true });
+      const folder2 = process.env.DOWNLOAD_DATA_DIR ?? fileURLToPath3(new URL("./data/", import.meta.url));
+      await mkdir3(folder2, { recursive: true });
       await appendFile(
-        `${folder}/missing-requests.jsonl`,
+        `${folder2}/missing-requests.jsonl`,
         JSON.stringify({
           user,
           ...target,
@@ -47183,28 +47275,12 @@ var server = createServer(async (request2, response) => {
     });
     return;
   }
-  const key = JSON.stringify([
-    tier,
-    target.imdbId,
-    normalizedTitle(target.title),
-    target.year,
-    target.runtimeMinutes
-  ]);
-  const hit = cache3.get(key);
-  if (hit && hit.expires > now) {
-    send(200, hit.result);
-    return;
-  }
+  const key = downloadCacheKey(tier, target);
   try {
-    const result = await withRequestBudget(
+    const result = await withRequestBudget(() => reliableDownloads(
+      key,
       () => providers[tier](target)
-    );
-    if (!result.sources.some((source) => source.source === "Real-Debrid") && !(tier === "YTS / Debrid" && process.env.DOWNLOAD_ENABLE_DEBRID === "true")) {
-      if (cache3.size >= 200) cache3.delete(cache3.keys().next().value);
-      cache3.set(key, { result, expires: Date.now() + 3e5 });
-    }
-    await cacheVerifiedUploads(target, result).catch(() => {
-    });
+    ));
     send(200, result);
   } catch {
     send(200, {
@@ -47214,7 +47290,7 @@ var server = createServer(async (request2, response) => {
     });
   }
 });
-if (process.argv[1] === fileURLToPath2(import.meta.url)) {
+if (process.argv[1] === fileURLToPath3(import.meta.url)) {
   if (!local && (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY))
     throw new Error("Public hosting requires Supabase authentication settings");
   server.listen(
