@@ -31402,6 +31402,14 @@ async function verify(source) {
   return checked ? { ...source, ...checked } : null;
 }
 var pending = /* @__PURE__ */ new Map();
+async function checkSaved(saved, check) {
+  const results = await Promise.all((saved?.sources.slice(0, 4) ?? []).map((source) => check(source).catch(() => null)));
+  return results.filter((source) => source !== null);
+}
+function refreshIsDue(saved) {
+  const stamp = Date.parse(saved.refreshedAt ?? saved.verifiedAt);
+  return !Number.isFinite(stamp) || Date.now() - stamp > 6 * 36e5;
+}
 async function reliableDownloads(key, scrape, store = downloadStore, check = verify, forceRefresh = false) {
   const existing = pending.get(key);
   if (existing) return existing;
@@ -31411,16 +31419,9 @@ async function reliableDownloads(key, scrape, store = downloadStore, check = ver
       saved = await store.read(key);
     } catch {
     }
-    const checked = [];
-    for (const source of saved?.sources.slice(0, 4) ?? []) {
-      try {
-        const good = await check(source);
-        if (good) checked.push(good);
-      } catch {
-      }
-    }
+    const checked = await checkSaved(saved, check);
     const refreshedAt = saved?.refreshedAt ?? saved?.verifiedAt;
-    const refreshDue = !refreshedAt || Date.now() - Date.parse(refreshedAt) > 6 * 36e5;
+    const refreshDue = !saved || refreshIsDue(saved);
     if (checked.length && !forceRefresh && !refreshDue) {
       await store.write(key, {
         sources: checked,
@@ -31468,6 +31469,26 @@ async function reliableDownloads(key, scrape, store = downloadStore, check = ver
   } finally {
     pending.delete(key);
   }
+}
+async function resolveDownloadTier(tier, target, providers2, refresh = false, store = downloadStore, check = verify) {
+  if (!refresh) {
+    for (const savedTier of ["Web mirrors", "Internet Archive"]) {
+      const savedKey = downloadCacheKey(savedTier, target);
+      const known = await store.read(savedKey).catch(() => null);
+      if (!known?.sources.length) continue;
+      const checked = await checkSaved(known, check);
+      if (!checked.length) {
+        await store.write(savedKey, { sources: [], verifiedAt: (/* @__PURE__ */ new Date()).toISOString() }).catch(() => {
+        });
+        continue;
+      }
+      if (refreshIsDue(known)) return reliableDownloads(savedKey, () => providers2[savedTier](target), store, check);
+      await store.write(savedKey, { ...known, sources: checked, refreshedAt: known.refreshedAt ?? known.verifiedAt, verifiedAt: (/* @__PURE__ */ new Date()).toISOString() }).catch(() => {
+      });
+      return { status: "found", sources: checked, message: "Saved files rechecked successfully." };
+    }
+  }
+  return reliableDownloads(downloadCacheKey(tier, target), () => providers2[tier](target), store, check, refresh);
 }
 
 // ../server/download-engine/index.ts
@@ -47207,16 +47228,16 @@ var server = createServer(async (request2, response) => {
   }
   const parsedUrl = new URL(request2.url ?? "/", "http://localhost");
   if (request2.method === "GET" && parsedUrl.pathname.startsWith("/api/fawanews/")) {
-    const key2 = `fawa:${request2.socket.remoteAddress ?? "unknown"}`;
+    const key = `fawa:${request2.socket.remoteAddress ?? "unknown"}`;
     for (const [id, entry] of quota)
       if (entry.expires < Date.now()) quota.delete(id);
-    const usage = quota.get(key2) ?? { count: 0, expires: Date.now() + 6e4 };
+    const usage = quota.get(key) ?? { count: 0, expires: Date.now() + 6e4 };
     if (usage.count >= 60 || quota.size > 5e3) {
       send(429, { error: "Too many schedule requests. Please wait a moment." });
       return;
     }
     usage.count++;
-    quota.set(key2, usage);
+    quota.set(key, usage);
     try {
       if (parsedUrl.pathname === "/api/fawanews/schedule")
         send(200, await fawaSchedule());
@@ -47248,17 +47269,17 @@ var server = createServer(async (request2, response) => {
   }
   if (request2.method === "GET" && parsedUrl.pathname.startsWith("/api/jamboflix/")) {
     const address = request2.socket.remoteAddress ?? "unknown";
-    for (const [key3, entry] of quota)
-      if (entry.expires < Date.now()) quota.delete(key3);
+    for (const [key2, entry] of quota)
+      if (entry.expires < Date.now()) quota.delete(key2);
     if (quota.size >= 5e3) {
       send(503, { error: "Please try again later" });
       return;
     }
     const isMedia = parsedUrl.pathname === "/api/jamboflix/media";
-    const key2 = `jambo:${isMedia ? "media" : "catalogue"}:${address}`;
-    const now2 = Date.now(), limit2 = quota.get(key2);
+    const key = `jambo:${isMedia ? "media" : "catalogue"}:${address}`;
+    const now2 = Date.now(), limit2 = quota.get(key);
     const budget = limit2 && limit2.expires > now2 ? limit2 : { count: 0, expires: now2 + 6e4 };
-    quota.set(key2, budget);
+    quota.set(key, budget);
     budget.count++;
     if (budget.count > (isMedia ? 30 : 120)) {
       send(429, { error: "Please wait before trying again" });
@@ -47301,7 +47322,7 @@ var server = createServer(async (request2, response) => {
   }
   const user = authenticated ?? `guest:${request2.socket.remoteAddress ?? "unknown"}`;
   const now = Date.now();
-  for (const [key2, entry] of quota) if (entry.expires < now) quota.delete(key2);
+  for (const [key, entry] of quota) if (entry.expires < now) quota.delete(key);
   if (quota.size > 5e3) {
     send(503, { error: "Please try later" });
     return;
@@ -47352,17 +47373,8 @@ var server = createServer(async (request2, response) => {
     });
     return;
   }
-  const key = downloadCacheKey(tier, target);
   try {
-    const result = await withRequestBudget(
-      () => reliableDownloads(
-        key,
-        () => providers[tier](target),
-        void 0,
-        void 0,
-        value.refresh === true
-      )
-    );
+    const result = await withRequestBudget(() => resolveDownloadTier(tier, target, providers, value.refresh === true));
     send(200, result);
   } catch {
     send(200, {
