@@ -46730,6 +46730,111 @@ async function fawaMedia(page) {
   );
 }
 
+// ../server/download-engine/memberAuth.ts
+async function verifiedMember(headers) {
+  const authorization = headers.authorization;
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_ANON_KEY;
+  if (typeof authorization !== "string" || !authorization.startsWith("Bearer ") || !url || !key)
+    return null;
+  try {
+    const response = await fetch(`${url}/auth/v1/user`, {
+      headers: { apikey: key, Authorization: authorization },
+      signal: AbortSignal.timeout(15e3),
+      redirect: "error"
+    });
+    if (!response.ok) return null;
+    const user = await response.json();
+    if (!user.id || !user.email || !user.created_at) return null;
+    return {
+      id: user.id,
+      email: user.email.toLowerCase(),
+      createdAt: user.created_at,
+      confirmed: Boolean(user.email_confirmed_at)
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ../server/download-engine/referrals.ts
+function referralAccount(ledger, user, hash2, installationId, platform) {
+  const accounts = ledger.referrals ??= [];
+  let account = accounts.find((item) => item.id === user.id);
+  if (!account) {
+    let code = "HT" + hash2("invite:" + user.id).slice(0, 10).toUpperCase();
+    if (accounts.some((item) => item.code === code))
+      code += hash2("collision:" + user.id).slice(0, 4).toUpperCase();
+    account = {
+      id: user.id,
+      code,
+      joinedAt: user.createdAt,
+      email: user.email,
+      emailHash: hash2("email:" + user.email)
+    };
+    accounts.push(account);
+  }
+  account.email = user.email;
+  if (platform === "android" && /^[a-zA-Z0-9-]{24,100}$/.test(installationId)) {
+    const installationHash = hash2("install:" + installationId);
+    account.installationHash ??= installationHash;
+  }
+  return account;
+}
+function referralSummary(ledger, account, now = Date.now()) {
+  const qualified = (ledger.referrals ?? []).filter(
+    (item) => item.invitedBy === account.id
+  ).length;
+  const withinWelcome = now >= Date.parse(account.joinedAt) && now - Date.parse(account.joinedAt) <= 7 * 864e5;
+  return {
+    code: account.code,
+    qualifiedInvites: qualified,
+    goal: 5,
+    monthEarned: Boolean(account.monthEarned),
+    welcomeClaimed: Boolean(account.invitedBy),
+    canRedeem: Boolean(account.installationHash) && withinWelcome && !account.invitedBy,
+    welcomeDeadline: new Date(
+      Date.parse(account.joinedAt) + 7 * 864e5
+    ).toISOString()
+  };
+}
+function claimInvitation(ledger, account, code, now = Date.now()) {
+  const summary = referralSummary(ledger, account, now);
+  if (account.invitedBy)
+    throw new Error("Your welcome invitation has already been redeemed.");
+  if (!account.installationHash)
+    throw new Error(
+      "Open the installed Android app to redeem your invitation."
+    );
+  if (!summary.canRedeem)
+    throw new Error(
+      "Welcome codes are available during your first seven days after sign-up."
+    );
+  const inviter = ledger.referrals?.find(
+    (item) => item.code === code.toUpperCase().replace(/\s/g, "")
+  );
+  if (!inviter)
+    throw new Error(
+      "That invitation code wasn't found. Check it with your friend."
+    );
+  if (inviter.id === account.id || inviter.emailHash === account.emailHash)
+    throw new Error("Use a friend's code, rather than your own.");
+  if (Date.parse(inviter.joinedAt) >= Date.parse(account.joinedAt))
+    throw new Error("The inviter must have joined before your new account.");
+  if (inviter.installationHash === account.installationHash || ledger.referrals?.some(
+    (item) => item.id !== account.id && item.installationHash === account.installationHash && item.invitedBy
+  ))
+    throw new Error(
+      "A welcome invitation has already been used on this installation."
+    );
+  account.invitedBy = inviter.id;
+  const count = ledger.referrals.filter(
+    (item) => item.invitedBy === inviter.id
+  ).length;
+  const awardMonth = count >= 5 && !inviter.monthEarned;
+  if (awardMonth) inviter.monthEarned = true;
+  return { inviter, awardMonth };
+}
+
 // ../server/download-engine/memberships.ts
 import {
   randomBytes,
@@ -46871,6 +46976,7 @@ function details(value) {
 function entitlement(record) {
   return {
     requestId: record.id,
+    source: record.source,
     email: record.email,
     phone: record.phone,
     planId: record.planId,
@@ -46879,6 +46985,48 @@ function entitlement(record) {
     cancelledAt: record.cancelledAt,
     serverNow: (/* @__PURE__ */ new Date()).toISOString()
   };
+}
+function belongsTo(record, user) {
+  return record.userId ? record.userId === user.id : record.email === user.email;
+}
+function receiptMatches(record, token) {
+  return Boolean(
+    record.receiptHash && equal(record.receiptHash, hash(token)) || record.accountReceiptHash && equal(record.accountReceiptHash, hash(token))
+  );
+}
+function accountMembership(ledger, user) {
+  const record = ledger.requests.filter(
+    (item) => belongsTo(item, user) && item.activatedAt && !item.supersededBy
+  ).sort((a, b) => Date.parse(b.endsAt ?? "") - Date.parse(a.endsAt ?? ""))[0];
+  if (!record) return null;
+  record.userId = user.id;
+  const receiptToken = hash("account-receipt:" + user.id + ":" + record.id);
+  record.accountReceiptHash = hash(receiptToken);
+  return { ...entitlement(record), receiptToken };
+}
+function grantReward(ledger, user, days, source) {
+  const existing = ledger.requests.filter(
+    (item) => belongsTo(item, user) && item.activatedAt && !item.supersededBy && Date.parse(item.endsAt ?? "") > Date.now()
+  ).sort((a, b) => Date.parse(b.endsAt) - Date.parse(a.endsAt))[0];
+  if (existing) {
+    existing.endsAt = new Date(
+      Date.parse(existing.endsAt) + days * 864e5
+    ).toISOString();
+    return;
+  }
+  const now = Date.now();
+  ledger.requests.push({
+    id: randomBytes(12).toString("hex"),
+    userId: user.id,
+    email: user.email,
+    phone: "",
+    planId: days === 7 ? "weekly" : "monthly",
+    createdAt: new Date(now).toISOString(),
+    activatedAt: new Date(now).toISOString(),
+    endsAt: new Date(now + days * 864e5).toISOString(),
+    claimHash: hash("reward:" + user.id + ":" + source),
+    source
+  });
 }
 function admin(headers) {
   const authorization = headers.authorization;
@@ -46889,7 +47037,7 @@ function admin(headers) {
     throw new Error("Sign in to the admin panel again.");
   }
 }
-async function membershipApi(path, method, input, headers, ip) {
+async function membershipApi(path, method, input, headers, ip, identity) {
   try {
     if (path === "/api/membership/config" && method === "GET")
       return {
@@ -47009,11 +47157,65 @@ async function membershipApi(path, method, input, headers, ip) {
         };
       }
     }
+    limit("member-ip:" + ip, 120);
+    const user = identity === void 0 ? await verifiedMember(headers) : identity;
+    if (!user)
+      return {
+        status: 401,
+        data: { error: "Sign in to manage your membership and rewards." }
+      };
+    if (!user.confirmed)
+      return {
+        status: 403,
+        data: { error: "Confirm your account email, then sign in again." }
+      };
+    if (path === "/api/membership/rewards" && method === "POST" || path === "/api/membership/invite/redeem" && method === "POST") {
+      limit("rewards:" + user.id, 30);
+      return {
+        status: 200,
+        data: await transact((ledger) => {
+          const account = referralAccount(
+            ledger,
+            user,
+            hash,
+            details(input.installationId),
+            details(input.platform)
+          );
+          if (path.endsWith("/redeem")) {
+            const { inviter, awardMonth } = claimInvitation(
+              ledger,
+              account,
+              details(input.code)
+            );
+            grantReward(ledger, user, 7, "invitation");
+            if (awardMonth) {
+              grantReward(
+                ledger,
+                {
+                  id: inviter.id,
+                  email: inviter.email,
+                  createdAt: inviter.joinedAt,
+                  confirmed: true
+                },
+                30,
+                "invite-milestone"
+              );
+            }
+          }
+          return {
+            ...referralSummary(ledger, account),
+            membership: accountMembership(ledger, user)
+          };
+        })
+      };
+    }
     if (path === "/api/membership/request" && method === "POST") {
       limit("request:" + ip, 15);
       const email = details(input.email).toLowerCase(), phone = details(input.phone), planId = details(input.planId);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200 || !validTanzaniaPhone(phone) || !membershipPlans.some((plan) => plan.id === planId))
         throw new Error("Enter a valid email, mobile number and plan.");
+      if (email !== user.email)
+        throw new Error("Use the email of your signed-in account.");
       const claimToken = randomBytes(32).toString("hex"), id = randomBytes(12).toString("hex");
       await transact((ledger) => {
         let previousRequestId;
@@ -47021,7 +47223,7 @@ async function membershipApi(path, method, input, headers, ip) {
           const previous = ledger.requests.find(
             (item) => item.id === input.previousRequestId
           );
-          if (!previous?.receiptHash || !equal(previous.receiptHash, hash(details(input.receiptToken))) || previous.email !== email)
+          if (!previous || !receiptMatches(previous, details(input.receiptToken)) || previous.email !== email || !belongsTo(previous, user))
             throw new Error("Your current membership could not be verified.");
           if (previous.supersededBy)
             throw new Error(
@@ -47039,6 +47241,7 @@ async function membershipApi(path, method, input, headers, ip) {
         }
         ledger.requests.push({
           id,
+          userId: user.id,
           email,
           phone,
           planId,
@@ -47058,7 +47261,7 @@ async function membershipApi(path, method, input, headers, ip) {
           const record = ledger.requests.find(
             (item) => item.id === input.requestId
           );
-          if (!record || !equal(record.claimHash, hash(details(input.claimToken))))
+          if (!record || !belongsTo(record, user) || !equal(record.claimHash, hash(details(input.claimToken))))
             throw new Error(
               "This code belongs to a different subscription request."
             );
@@ -47073,7 +47276,13 @@ async function membershipApi(path, method, input, headers, ip) {
             (item) => item.id === record.planId
           );
           const activatedAt = Date.now();
-          let remaining = 0;
+          const livePlans = ledger.requests.filter(
+            (item) => item.id !== record.id && belongsTo(item, user) && !item.supersededBy && item.activatedAt && Date.parse(item.endsAt ?? "") > activatedAt
+          );
+          let remaining = Math.max(
+            0,
+            ...livePlans.map((item) => Date.parse(item.endsAt) - activatedAt)
+          );
           if (record.previousRequestId) {
             const previous = ledger.requests.find(
               (item) => item.id === record.previousRequestId
@@ -47082,7 +47291,10 @@ async function membershipApi(path, method, input, headers, ip) {
               throw new Error(
                 "The previous plan was already replaced. Contact support before paying again."
               );
-            remaining = Math.max(0, Date.parse(previous.endsAt ?? "") - activatedAt) || 0;
+            remaining = Math.max(
+              remaining,
+              Math.max(0, Date.parse(previous.endsAt ?? "") - activatedAt) || 0
+            );
             previous.supersededBy = record.id;
             previous.endsAt = new Date(
               Math.min(
@@ -47090,6 +47302,10 @@ async function membershipApi(path, method, input, headers, ip) {
                 Date.parse(previous.endsAt ?? "") || activatedAt
               )
             ).toISOString();
+          }
+          for (const old of livePlans) {
+            old.supersededBy = record.id;
+            old.endsAt = new Date(activatedAt).toISOString();
           }
           record.activatedAt = new Date(activatedAt).toISOString();
           record.endsAt = new Date(
@@ -47110,7 +47326,7 @@ async function membershipApi(path, method, input, headers, ip) {
           const record = ledger.requests.find(
             (item) => item.id === input.requestId
           );
-          if (!record?.receiptHash || !equal(record.receiptHash, hash(details(input.receiptToken))))
+          if (!record || !belongsTo(record, user) || !receiptMatches(record, details(input.receiptToken)))
             throw new Error("Membership could not be verified.");
           if (path.endsWith("/cancel"))
             record.cancelledAt ??= (/* @__PURE__ */ new Date()).toISOString();
